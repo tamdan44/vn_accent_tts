@@ -16,7 +16,7 @@ HF_MODEL_NAME = "facebook/mms-tts-vie"
 TOKENIZER_NAME = HF_MODEL_NAME
 
 # Training hyperparams
-BATCH_SIZE = 4
+BATCH_SIZE = 2
 NUM_EPOCHS = 10
 LR = 1e-4
 ACCENT_EMB_DIM = 256

@@ -4,9 +4,6 @@ import os
 current_directory = os.getcwd()
 print(f"The current working directory is: {current_directory}")
 
-# os.chdir("..")
-# current_directory = os.getcwd()
-# print(f"The current working directory is: {current_directory}")
 
 import torch
 from torch.utils.data import DataLoader

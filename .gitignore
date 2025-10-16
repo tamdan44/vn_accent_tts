@@ -3,5 +3,8 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
-.data/vimd_dataset.pkl
-.data/processed_data.pkl
+
+
+my_dataset/
+processed_dataset/
+processed_dataset16k/
