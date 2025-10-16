@@ -4,7 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 # Data
-DATA_PKL = ROOT / "data" / "processed_dataset.pkl"
+DATA_PKL = ROOT / "data" / "processed_dataset16kHz.pkl"
 ACCENT2ID_JSON = ROOT / "data" / "accent2id.json"
 
 # Checkpoints

@@ -1,65 +1,75 @@
 # src/dataset.py
 import torch
 from torch.utils.data import Dataset
-from transformers import AutoTokenizer
-from typing import Optional
-from pathlib import Path
-import numpy as np
-from utils import load_pickle
+import torchaudio
 
-class ViAccentDataset(Dataset):
-    """
-    Wrap a HuggingFace Dataset split loaded from pickled DatasetDict.
-    Each example expected fields:
-      - 'text' (str)
-      - 'audio' (dict with 'array' and 'sampling_rate') OR waveform array directly
-      - 'accent_label' (int)
-      - 'filename' optional
-    """
-    def __init__(self, hf_dataset_split, tokenizer_name: str, accent2id_map=None, max_waveform_len: Optional[int]=None):
-        self.dataset = hf_dataset_split
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        self.accent2id_map = accent2id_map
-        self.max_waveform_len = max_waveform_len
+from config import TARGET_SAMPLE_RATE
 
-    @classmethod
-    def from_pickle(cls, pkl_path, split: str, tokenizer_name: str, max_waveform_len: Optional[int]=None):
-        ds = load_pickle(pkl_path)
-        return cls(ds[split], tokenizer_name, max_waveform_len=max_waveform_len)
+class AccentDataset(Dataset):
+    """
+    Wrap Hugging Face dataset into a PyTorch dataset
+    """
+    def __init__(self, hf_dataset, processor=None, target_sampling_rate=TARGET_SAMPLE_RATE):
+        """
+        Args:
+            hf_dataset (datasets.Dataset)
+            processor (Wav2Vec2Processor)
+            target_sampling_rate (int): required sampling rate (default 16kHz)
+        """
+        self.dataset = hf_dataset
+        self.processor = processor
+        self.target_sampling_rate = target_sampling_rate
 
     def __len__(self):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-        ex = self.dataset[idx]
-        text = ex["text"]
-        # audio can be dict or array
-        audio = ex["audio"]
-        if isinstance(audio, dict):
-            arr = audio.get("array")
-            sr = audio.get("sampling_rate", None)
+        item = self.dataset[idx]
+
+        # waveform: float32 numpy [-1, 1]
+        audio = item["audio"]["array"]
+        sampling_rate = item["audio"]["sampling_rate"]
+
+        # Convert numpy to torch
+        waveform = torch.from_numpy(audio).float()
+
+        # Resample if needed
+        if sampling_rate != self.target_sampling_rate:
+            waveform = torchaudio.functional.resample(
+                waveform, 
+                orig_freq=sampling_rate, 
+                new_freq=self.target_sampling_rate
+            )
+
+        # Processor expects shape (batch, time)
+        if self.processor:
+            audio_inputs = self.processor(
+                waveform.numpy(),
+                sampling_rate=self.target_sampling_rate,
+                return_tensors="pt"
+            )
+            input_values = audio_inputs.input_values.squeeze(0)
         else:
-            arr = audio
-            sr = None
-        # ensure numpy array
-        wav = None
-        if isinstance(arr, list):
-            wav = np.array(arr, dtype=np.float32)
-        elif hasattr(arr, "astype"):
-            wav = arr.astype(np.float32)
-        else:
-            raise RuntimeError(f"Unknown audio array type: {type(arr)}")
+            input_values = waveform
 
-        # crop/truncate if requested
-        if self.max_waveform_len is not None and wav.shape[0] > self.max_waveform_len:
-            wav = wav[: self.max_waveform_len]
+        accent_label = item["accent_label"]
 
-        accent_label = int(ex["accent_label"]) if "accent_label" in ex else -1
-
-        # tokenize later in collate to support dynamic padding
         return {
-            "text": text,
-            "waveform": wav,
-            "sampling_rate": sr,
-            "accent_label": accent_label
+            "input_values": input_values,
+            "label": torch.tensor(accent_label, dtype=torch.long),
+            "text": item["text"]
         }
+
+
+def collate_fn(batch):
+    """
+    Pad audio sequences dynamically
+    """
+    input_values = [b["input_values"] for b in batch]
+    labels = [b["label"] for b in batch]
+
+    # pad audio
+    input_values = torch.nn.utils.rnn.pad_sequence(input_values, batch_first=True)
+    labels = torch.stack(labels)
+
+    return {"input_values": input_values, "labels": labels}
