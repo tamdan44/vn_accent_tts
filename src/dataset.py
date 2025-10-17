@@ -33,14 +33,6 @@ class AccentDataset(Dataset):
         # Convert numpy to torch
         waveform = torch.from_numpy(audio).float()
 
-        # Resample if needed
-        if sampling_rate != self.target_sampling_rate:
-            waveform = torchaudio.functional.resample(
-                waveform, 
-                orig_freq=sampling_rate, 
-                new_freq=self.target_sampling_rate
-            )
-
         # Processor expects shape (batch, time)
         if self.processor:
             audio_inputs = self.processor(
