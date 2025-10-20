@@ -2,6 +2,8 @@
 import torch
 from torch.utils.data import Dataset
 import torchaudio
+from datasets import load_from_disk
+from torch.utils.data import DataLoader
 
 from config import TARGET_SAMPLE_RATE
 
@@ -16,9 +18,13 @@ class AccentDataset(Dataset):
             processor (Wav2Vec2Processor)
             target_sampling_rate (int): required sampling rate (default 16kHz)
         """
-        self.dataset = hf_dataset
+        
+        self.dataset = load_from_disk("processed_dataset16k")
         self.processor = processor
         self.target_sampling_rate = target_sampling_rate
+        self.train_loader = DataLoader(self.dataset["train"], batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
+        self.valid_loader = DataLoader(self.dataset["valid"], batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
+        self.test_loader  = DataLoader(self.dataset["test"], batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
 
     def __len__(self):
         return len(self.dataset)
@@ -29,8 +35,6 @@ class AccentDataset(Dataset):
         # waveform: float32 numpy [-1, 1]
         audio = item["audio"]["array"]
         sampling_rate = item["audio"]["sampling_rate"]
-
-        # Convert numpy to torch
         waveform = torch.from_numpy(audio).float()
 
         # Processor expects shape (batch, time)
