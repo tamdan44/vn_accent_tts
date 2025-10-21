@@ -9,9 +9,7 @@ from accent_model import AccentVits
 from config import HF_MODEL_NAME, TOKENIZER_NAME, ACCENT2ID_JSON, CHECKPOINT_DIR
 
 def load_wrapper(checkpoint_dir: str, num_accents: int, accent_emb_dim: int = 256, device="cpu"):
-    # If you saved using save_pretrained on base, load via from_pretrained_with_accent
     wrapper = AccentVits(base_model_name=checkpoint_dir, num_accents=num_accents, accent_emb_dim=accent_emb_dim, freeze_base=False)
-    # try to load accent_head if present (the wrapper implementation checks)
     wrapper.to(device)
     return wrapper
 
@@ -25,7 +23,6 @@ def tts_generate(text: str, accent_name: str, out_path: str, device="cpu"):
 
     tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_NAME)
     # build model
-    # if you saved a full pretrained base model folder inside CHECKPOINT_DIR, you can use that
     num_accents = len(accent2id)
     dev = torch.device(device)
     model = AccentVits(base_model_name=HF_MODEL_NAME, num_accents=num_accents, accent_emb_dim=256)

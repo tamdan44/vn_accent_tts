@@ -6,5 +6,6 @@ __pycache__/
 
 
 my_dataset/
+filtered_dataset/
 processed_dataset16k/
 notebooks_kaggle/

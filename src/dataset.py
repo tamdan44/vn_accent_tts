@@ -2,7 +2,6 @@
 import torch
 from torch.utils.data import Dataset
 import torchaudio
-from datasets import load_from_disk
 from torch.utils.data import DataLoader
 
 from config import TARGET_SAMPLE_RATE
@@ -19,12 +18,9 @@ class AccentDataset(Dataset):
             target_sampling_rate (int): required sampling rate (default 16kHz)
         """
         
-        self.dataset = load_from_disk("processed_dataset16k")
+        self.dataset = hf_dataset
         self.processor = processor
         self.target_sampling_rate = target_sampling_rate
-        self.train_loader = DataLoader(self.dataset["train"], batch_size=BATCH_SIZE, shuffle=True, collate_fn=collate_fn)
-        self.valid_loader = DataLoader(self.dataset["valid"], batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
-        self.test_loader  = DataLoader(self.dataset["test"], batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn)
 
     def __len__(self):
         return len(self.dataset)
@@ -55,6 +51,16 @@ class AccentDataset(Dataset):
             "label": torch.tensor(accent_label, dtype=torch.long),
             "text": item["text"]
         }
+    
+    def load_dataloaders(self, batch_size, shuffle=True):
+        train_loader = DataLoader(self.dataset["train"], batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
+        valid_loader = DataLoader(self.dataset["valid"], batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+        test_loader  = DataLoader(self.dataset["test"], batch_size=batch_size, shuffle=False, collate_fn=collate_fn)
+        return train_loader, valid_loader, test_loader
+    
+    def filter_gender(self, gender):
+        ds = ds.filter(lambda x: x["gender"] == gender , num_proc=1)
+        return ds
 
 
 def collate_fn(batch):
